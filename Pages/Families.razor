@@ -1,0 +1,121 @@
+﻿@using Models
+@using System.Net.Http.Headers
+@using Microsoft.AspNetCore.WebUtilities
+@using System.IO
+@using System.Data
+@using BlazorApp1
+@inject BlazorApp1.Data.ExcelService service
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
+@page "/families"
+
+<PageTitle>Families</PageTitle>
+
+<h1>Families</h1>
+<label>Search by PIID:</label>
+<input @bind-value="@piid" inputmode="numeric" class="form-text" type="search">
+<button class="btn btn-primary" @onclick="()=>CallApi()">Search</button>
+<button class="btn btn-primary" @onclick="()=>CreateDocument()">Export as Excelfile</button>
+<table class="table-bordered">
+    <tr>
+        <th>Family ID</th>
+        <th>Family Description</th>
+        <th>User ID</th>
+        <th>Individual ID</th>
+        <th>Local ID</th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>PIID</th>
+        <th>Date Added</th>
+    </tr>
+    @foreach (var family in families)
+    {
+        <tr>
+            <td>@family.FamilyId</td>
+            <td>@family.FamilyDesc</td>
+            <td>@family.UserId</td>
+            <td>@family.IndividualId</td>
+            <td>@family.LocalId</td>
+            <td>@family.IndividualFName</td>
+            <td>@family.IndividualLName</td>
+            <td>@family.Piid</td>
+            <td>@family.DateAdd</td>
+        </tr>
+    }
+</table>
+<h3>@errorMessage</h3>
+
+@code {
+    List<FMessage> families = new List<FMessage>();
+    int piid = 0;
+    string errorMessage = "";
+    MemoryStream excelstream;
+    public DataTable CreateFamilyTable()
+    {
+        DataTable fams = new DataTable();
+
+        fams.Columns.Add("Family ID");
+        fams.Columns.Add("Family Description");
+        fams.Columns.Add("User ID", typeof(int));
+        fams.Columns.Add("Individual ID");
+        fams.Columns.Add("Local ID");
+        fams.Columns.Add("First Name");
+        fams.Columns.Add("Last Name");
+        fams.Columns.Add("PIID", typeof(int));
+        fams.Columns.Add("Date Added");
+
+        foreach (var fam in families)
+        {
+            fams.Rows.Add(
+                fam.FamilyId,
+                fam.FamilyDesc,
+                fam.UserId,
+                fam.IndividualId,
+                fam.LocalId,
+                fam.IndividualFName,
+                fam.IndividualLName,
+                fam.Piid,
+                fam.DateAdd
+            );
+        }
+        return fams;
+    }
+    protected async Task CreateDocument()
+    {
+        DataTable table = CreateFamilyTable();
+        excelstream = service.CreateExcel(table);
+        await JSRuntime.SaveAs("Families.xlsx",excelstream.ToArray());
+    }
+    private async Task CallApi()
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            Environment.GetEnvironmentVariable("API_KEY"));
+            var result = new HttpResponseMessage();
+            if (piid == 0) 
+            {
+                result = await client.GetAsync("https://wings.esat.kuleuven.be/rest-api/families");
+            }
+            else
+            {
+                result = await client.GetAsync($"https://wings.esat.kuleuven.be/rest-api/families?piid={piid}");
+            }
+            if ((int)result.StatusCode == 200)
+            {
+                var data = await result.Content.ReadFromJsonAsync<Family>();
+                if (data is not null)
+                {
+                    families = data.Message;
+                }
+            }
+            else
+            {
+                errorMessage = $"There was an error fetching the data (HTTP {(int)result.StatusCode})";
+            }
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await CallApi();
+    }
+}

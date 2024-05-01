@@ -1,0 +1,82 @@
+@using Models
+@using System.Net.Http.Headers
+@page "/related"
+<h1>Related Individuals</h1>
+@foreach (FMessage fam in families)
+{
+    <h2>Members of family @fam.FamilyId</h2>
+    <table class="table-bordered">
+        <tr>
+            <th>Individual ID</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Status</th>
+            <th>Sex</th>
+            <th>User ID</th>
+            <th>Local ID</th>
+            <th>PIID</th>
+            <th>Date Added</th>
+            <th>Relevant Clinical Info</th>
+            <th>DOB</th>
+            <th>Age</th>
+            <th>Phenotypes</th>
+        </tr>
+        @foreach (IndMessage ind in individuals)
+    {
+        if (ind.IndividualId.Substring(0, 7) == fam.IndividualId.Substring(0, 7))
+        {
+            <tr>
+                <td>@ind.IndividualId</td>
+                <td>@ind.IndividualFName</td>
+                <td>@ind.IndividualLName</td>
+                <td>@ind.IndividualStatus</td>
+                <td>@ind.IndividualSex</td>
+                <td>@ind.UserId</td>
+                <td>@ind.LocalId</td>
+                <td>@ind.Piid</td>
+                <td>@ind.DateAdd</td>
+                <td>@ind.RelevantClinicalInfo</td>
+                <td>@ind.IndividualBirthDate</td>
+                <td>@ind.Age</td>
+                <td>
+                    @foreach (string pt in ind.Phenotype)
+                    {
+                        <p>@pt </p>
+                    }
+                </td>
+            </tr>
+        }
+    }
+    </table>
+}
+@code {
+    List<IndMessage> individuals = new List<IndMessage>();
+    List<FMessage> families = new List<FMessage>();
+    string errorMessage = "";
+    protected override async Task OnInitializedAsync()
+    {
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            Environment.GetEnvironmentVariable("API_KEY"));
+            HttpResponseMessage resultInd = new HttpResponseMessage();
+            HttpResponseMessage resultFam = new HttpResponseMessage();
+            resultInd = await client.GetAsync($"https://wings.esat.kuleuven.be/rest-api/individuals");
+            resultFam = await client.GetAsync($"https://wings.esat.kuleuven.be/rest-api/families");
+            if ((int)resultInd.StatusCode == 200 && (int)resultFam.StatusCode == 200)
+            {
+                Individual dataInd = await resultInd.Content.ReadFromJsonAsync<Individual>();
+                Family dataFam = await resultFam.Content.ReadFromJsonAsync<Family>();
+                if (dataInd is not null && dataFam is not null)
+                {
+                    individuals = dataInd.Message;
+                    families = dataFam.Message;
+                }
+            }
+            else
+            {
+                errorMessage = $"There was an error fetching the data (HTTP {(int)resultInd.StatusCode}/{(int)resultFam.StatusCode})";
+            }
+        }
+    }
+}
