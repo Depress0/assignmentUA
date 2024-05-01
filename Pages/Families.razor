@@ -27,7 +27,7 @@
         <th>PIID</th>
         <th>Date Added</th>
     </tr>
-    @foreach (var family in families)
+    @foreach (FMessage family in families)
     {
         <tr>
             <td>@family.FamilyId</td>
@@ -63,7 +63,7 @@
         fams.Columns.Add("PIID", typeof(int));
         fams.Columns.Add("Date Added");
 
-        foreach (var fam in families)
+        foreach (FMessage fam in families)
         {
             fams.Rows.Add(
                 fam.FamilyId,
@@ -87,11 +87,11 @@
     }
     private async Task CallApi()
     {
-        using (var client = new HttpClient())
+        using (HttpClient client = new HttpClient())
         {
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
             Environment.GetEnvironmentVariable("API_KEY"));
-            var result = new HttpResponseMessage();
+            HttpResponseMessage result = new HttpResponseMessage();
             if (piid == 0) 
             {
                 result = await client.GetAsync("https://wings.esat.kuleuven.be/rest-api/families");
@@ -102,7 +102,7 @@
             }
             if ((int)result.StatusCode == 200)
             {
-                var data = await result.Content.ReadFromJsonAsync<Family>();
+                Family data = await result.Content.ReadFromJsonAsync<Family>();
                 if (data is not null)
                 {
                     families = data.Message;
